@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Japan Trip 2024 🇯🇵</title>
+    
+    <!-- 1. 引入字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+    <!-- 2. 引入 FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --paper-color: #FDFBF7;
+            --text-color: #4a4a4a;
+            --color-d1: #F4C2C2;
+            --color-d2: #F6E683;
+            --color-d3: #A0D8EF;
+            --color-d4: #FABE9C;
+            --color-d5: #C5E1A5;
+            --card-shadow: 4px 4px 15px rgba(0,0,0,0.05);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: var(--paper-color);
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+            color: var(--text-color);
+            height: 100vh;
+            height: 100dvh; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            padding: 20px 20px 10px;
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            transition: background 0.4s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0;
+            padding-top: env(safe-area-inset-top, 25px); 
+        }
+
+        .hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
+        
+        .date-badge { 
+            font-family: 'Caveat', cursive; 
+            font-size: 1.8rem; 
+            background: rgba(255,255,255,0.8); 
+            padding: 5px 20px; 
+            border-radius: 20px;
+            transform: rotate(-2deg);
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+            color: #444;
+            display: inline-block;
+        }
+
+        /* --- Weather Widget --- */
+        .weather-widget-link { text-decoration: none; color: inherit; display: block; }
+
+        .weather-widget { 
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.8);
+            border-radius: 16px;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 90px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .weather-widget:active { transform: scale(0.95); }
+
+        .weather-icon-img { 
+            font-size: 2rem; 
+            margin-bottom: 2px;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+        }
+
+        .weather-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #333;
+        }
+
+        .rain-prob {
+            font-size: 0.75rem;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        .rain-icon { color: #4facfe; font-size: 0.8rem; }
+
+        .location-title { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            margin-top: 15px; 
+            color: #444; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px;
+        }
+
+        /* --- Timeline Container --- */
+        .timeline-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 15px calc(120px + env(safe-area-inset-bottom)) 15px;
+            position: relative;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch; 
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 60px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-image: linear-gradient(to bottom, #ddd 50%, transparent 50%);
+            background-size: 2px 12px;
+            z-index: 0;
+        }
+
+        /* --- Cards --- */
+        .event-row {
+            display: flex;
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.5s ease backwards;
+        }
+        .event-row:last-child { margin-bottom: 0; }
+
+        .time-col {
+            width: 60px;
+            padding-right: 12px;
+            text-align: right;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #888;
+            padding-top: 12px;
+        }
+
+        .card-col { flex: 1; }
+
+        .card {
+            background: #fff;
+            border-radius: 18px;
+            padding: 15px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+        .card:active { transform: scale(0.98); }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 6px;
+            background: var(--current-theme);
+            border-radius: 18px 18px 0 0;
+            opacity: 0.6;
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        
+        .tag { 
+            font-size: 0.75rem; 
+            padding: 4px 10px; 
+            border-radius: 8px; 
+            background: #fff; 
+            border: 1px solid #eee;
+            color: #555; 
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .tag i { color: var(--current-theme); font-size: 0.9rem; }
+
+        .card-title { font-size: 1.1rem; font-weight: 700; margin: 8px 0; color: #333; line-height: 1.4;}
+        .card-meta { font-size: 0.85rem; color: #777; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap;}
+        
+        .card-intro {
+            margin-top: 10px;
+            background: #fcfcfc;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #555;
+            line-height: 1.6;
+            border-left: 3px solid var(--current-theme);
+        }
+
+        .actions {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px dashed #eee;
+            padding-top: 10px;
+        }
+
+        .btn-action {
+            border: none;
+            background: var(--current-theme);
+            color: #333;
+            padding: 8px 16px; 
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.9;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .btn-action i { font-size: 0.8rem; opacity: 0.7; }
+
+        /* --- Bottom Nav --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: calc(25px + env(safe-area-inset-bottom));
+            left: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 35px;
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            z-index: 100;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .nav-item {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #999;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-family: 'Caveat', cursive;
+            font-size: 1.3rem;
+        }
+
+        .nav-item.active {
+            background: var(--current-theme);
+            color: #333;
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .modal-overlay.show { display: flex; }
+
+        .modal-content {
+            background: #fff;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+
+        .modal-header { font-weight: bold; font-size: 1.3rem; margin-bottom: 15px; border-bottom: 2px solid #f4f4f4; padding-bottom: 10px; color: #333;}
+        .modal-body { font-size: 1rem; line-height: 1.8; color: #555; white-space: pre-line; }
+        .modal-close { 
+            background: #f4f4f4; border: none; width: 100%; padding: 12px; 
+            border-radius: 12px; margin-top: 20px; font-weight: bold; color: #666; cursor: pointer;
+            font-size: 1rem;
+        }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- Hero -->
+    <div class="hero" id="heroSection">
+        <div class="hero-top">
+            <div class="date-badge" id="currentDate">5/15 (Thu)</div>
+            
+            <!-- 天氣 Widget -->
+            <!-- 連結將由 JS 動態生成 -->
+            <a href="#" id="weatherLink" target="_blank" class="weather-widget-link">
+                <div class="weather-widget">
+                    <!-- 彩色天氣 ICON (SVG) -->
+                    <div class="weather-icon-img">
+                        <svg width="40" height="40" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="32" cy="32" r="14" fill="#FFC107"/>
+                            <path d="M46 32C46 39.732 39.732 46 32 46C24.268 46 18 39.732 18 32C18 24.268 24.268 18 32 18C39.732 18 46 24.268 46 32Z" fill="url(#sun_gradient)"/>
+                            <path d="M47 43H28C24.6863 43 22 40.3137 22 37C22 34.1489 24.0177 31.7564 26.7118 31.1611C27.1165 27.6987 30.0632 25 33.5 25C37.3323 25 40.5226 27.8159 41.3468 31.5033C41.8767 31.3346 42.4336 31.25 43 31.25C46.3137 31.25 49 33.9363 49 37.25C49 40.2458 46.7262 42.7042 43.8182 42.9806" fill="white" fill-opacity="0.9"/>
+                            <defs>
+                                <radialGradient id="sun_gradient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 32) rotate(90) scale(14)">
+                                    <stop stop-color="#FFD54F"/>
+                                    <stop offset="1" stop-color="#FFB300"/>
+                                </radialGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div class="weather-info">
+                        <span id="weatherTemp">24°</span>
+                    </div>
+                    <div class="rain-prob">
+                        <i class="fa-solid fa-droplet rain-icon"></i> <span id="rainProb">20%</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="location-title" id="locationTitle">
+            📍 台北 ➔ 大阪
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-container">
+        <div class="timeline-line"></div>
+        <div id="timelineContent"></div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchDay(1)">D1</div>
+        <div class="nav-item" onclick="switchDay(2)">D2</div>
+        <div class="nav-item" onclick="switchDay(3)">D3</div>
+        <div class="nav-item" onclick="switchDay(4)">D4</div>
+        <div class="nav-item" onclick="switchDay(5)">D5</div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="infoModal" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header" id="modalTitle">詳細資訊</div>
+            <div class="modal-body" id="modalBody">...</div>
+            <button class="modal-close" onclick="closeModal()">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        const tripData = [
+            {
+                day: 1, date: "5/15 (四)", location: "台北 ➔ 關西機場 ➔ 新大阪", themeColor: "var(--color-d1)",
+                // [新增] AccuWeather 參數: 大阪 (Osaka-shi) 代碼 225007
+                accuweather: { slug: "osaka-shi", code: "225007", day: "15" },
+                events: [
+                    { time: "10:55", end: "11:07", type: "transport", title: "高鐵: 板橋 → 桃園", meta: "12分 | TWD 260", note: "準時抵達高鐵桃園站" },
+                    { time: "13:35", end: "17:15", type: "transport", title: "飛機: TPE → KIX", meta: "3h 40m", note: "TPE 桃園機場 -> KIX 關西機場" },
+                    { time: "18:16", end: "19:06", type: "transport", title: "HARUKA 關空特快", meta: "50分 | TWD 774", note: "KLOOK 已付 QR Code\n關西空港 -> 新大阪 (4號出口)\n自由席或指定席請確認" },
+                    { time: "19:30", end: "20:00", type: "stay", title: "唐草鼎盛飯店 新大阪", meta: "Check-in", note: "新大阪站 4號出口沿北口高架走 5分鐘\n特大號雙人床 220cm\n含迎賓飲料" },
+                    { time: "20:00", end: "~", type: "food", title: "晚餐: 鳥貴族 / 炸牛排", meta: "約 ¥2500", note: "預定: 1930\nMaru de Sankaku 鯛魚拉麵 (2200打烊)\n美美卯 烏龍麵 (2030打烊)" }
+                ]
+            },
+            {
+                day: 2, date: "5/16 (五)", location: "新大阪 ➔ 名古屋 (麵包超人)", themeColor: "var(--color-d2)",
+                // [新增] AccuWeather 參數: 名古屋 (Nagoya-shi) 代碼 223362
+                accuweather: { slug: "nagoya-shi", code: "223362", day: "16" },
+                events: [
+                    { time: "07:30", end: "08:19", type: "transport", title: "新幹線: 新大阪 → 名古屋", meta: "特大行李 ¥534", note: "新幹線 No. xx" },
+                    { time: "08:19", end: "08:30", type: "stay", title: "名古屋站 寄放行李", meta: "太閣通口", note: "投幣式行李櫃" },
+                    { time: "08:30", end: "08:46", type: "transport", title: "近鐵: 名古屋 → 桑名", meta: "16分 | ¥530", note: "近鐵名古屋 [西檢票口] 入站\n往 [E13] 桑名 Kuwana" },
+                    { time: "09:00", end: "09:20", type: "transport", title: "巴士: 桑名 → 長島溫泉", meta: "20分 | SUICA", note: "桑名站前 [2號候車處] 搭乘" },
+                    { 
+                        time: "10:00", end: "14:30", type: "spot", title: "麵包超人兒童博物館", meta: "¥2000/人", 
+                        intro: "充滿愛與勇氣的夢幻樂園！必看每日精彩的戶外劇場表演與角色見面會，園區內還有許多麵包超人造景可供拍照。",
+                        note: "營業時間: 10:00-17:00\n含稅 2000日圓 (1歲未滿免費)" 
+                    },
+                    { 
+                        time: "14:30", end: "17:00", type: "spot", title: "Jazz Dream Outlet", meta: "購物", 
+                        intro: "日本最大級 Outlet 之一，擁有超過 300 間店舖，鄰近長島溫泉樂園，是充滿度假氛圍的購物天堂。",
+                        note: "長島溫泉站搭巴士回桑名站\n[14:17], [14:37] 發車" 
+                    },
+                    { time: "17:00", end: "17:30", type: "stay", title: "Vessel Inn 榮站前", meta: "Check-in", note: "三人房 | ezTravel 已付\n地址: 名古屋市中区錦3-14-13" },
+                    { time: "19:30", end: "~", type: "food", title: "晚餐: 綠洲 21 / 附近", meta: "覓食", note: "名古屋塔附近美食" }
+                ]
+            },
+            {
+                day: 3, date: "5/17 (六)", location: "名古屋港水族館 ➔ 熱田神宮", themeColor: "var(--color-d3)",
+                // AccuWeather: 名古屋 (Nagoya-shi)
+                accuweather: { slug: "nagoya-shi", code: "223362", day: "17" },
+                events: [
+                    { time: "08:40", end: "09:20", type: "transport", title: "地鐵: 榮 → 名古屋港", meta: "40分", note: "名城線 [E07 榮] -> [E05 名古屋港] 3號出口" },
+                    { 
+                        time: "09:30", end: "14:00", type: "spot", title: "名古屋港水族館", meta: "JPY 2030", 
+                        intro: "擁有世界最大戶外水槽！不可錯過精彩的「虎鯨（殺人鯨）訓練表演」以及壯觀的「沙丁魚龍捲風」，極具震撼力。",
+                        note: "營業時間: 9:30~17:30\n每週一休館" 
+                    },
+                    { time: "14:00", end: "15:00", type: "food", title: "午餐: LaLaport", meta: "美食街", note: "步行約 2 分鐘" },
+                    { time: "16:00", end: "16:30", type: "transport", title: "移動 → 熱田神宮", meta: "14分 | ¥270", note: "名城線 [傳馬町站] 1號出口，步行8分" },
+                    { time: "16:30", end: "18:30", type: "food", title: "熱田神宮 蓬萊軒", meta: "鰻魚飯", note: "必吃鰻魚飯三吃 (Hitsumabushi)\n可能需排隊，建議先抽號碼牌" },
+                    { time: "19:30", end: "~", type: "stay", title: "Vessel Inn 榮站前", meta: "續住", note: "雙人房 | ezTravel" }
+                ]
+            },
+            {
+                day: 4, date: "5/18 (日)", location: "名古屋 ➔ 大阪 Rinku Outlet", themeColor: "var(--color-d4)",
+                // AccuWeather: 臨空城/泉佐野 (Izumisano-shi) 代碼 225014
+                accuweather: { slug: "izumisano-shi", code: "225014", day: "18" },
+                events: [
+                    { time: "08:02", end: "08:07", type: "transport", title: "地鐵: 榮 → 名古屋站", meta: "5分", note: "前往搭乘新幹線/近鐵" },
+                    { time: "12:41", end: "13:30", type: "transport", title: "近鐵特急: 名古屋 → 難波", meta: "¥8510/人", note: "火之鳥號 (Hinotori) 建議預訂" },
+                    { time: "14:05", end: "14:35", type: "transport", title: "南海電鐵 → 臨空城", meta: "30分", note: "前往 Outlet" },
+                    { time: "15:00", end: "15:30", type: "stay", title: "OMO Kansai Airport", meta: "Check-in", note: "星野集團\n臨空城站旁\nCheck-in 放行李" },
+                    { 
+                        time: "15:30", end: "18:00", type: "spot", title: "Rinku Premium Outlets", meta: "血拼", 
+                        intro: "關西機場旁的海濱購物城，美式度假風格建築。匯集眾多國際名牌，天氣好時還能欣賞美麗的夕陽海景。",
+                        note: "臨空城 Outlet 自由活動" 
+                    },
+                    { time: "18:45", end: "20:45", type: "food", title: "國產牛燒肉 One Karubi", meta: "¥4280/人", note: "臨空城店 | 吃到飽\nBooking.com 已訂位" }
+                ]
+            },
+            {
+                day: 5, date: "5/19 (一)", location: "Rinku ➔ 關西機場 ➔ 台北", themeColor: "var(--color-d5)",
+                // AccuWeather: 臨空城/泉佐野
+                accuweather: { slug: "izumisano-shi", code: "225014", day: "19" },
+                events: [
+                    { 
+                        time: "08:30", end: "10:30", type: "spot", title: "Trial 超市 (臨空城)", meta: "最後採買", 
+                        intro: "福岡起家的 24 小時大型量販超市，價格極具競爭力，是回國前補貨零食、藥妝、生鮮的首選之地。",
+                        note: "24小時營業超市\n掃貨零食" 
+                    },
+                    { time: "10:30", end: "11:00", type: "transport", title: "移動到機場", meta: "接駁車/電車", note: "前往 KIX T1" },
+                    { time: "11:00", end: "13:00", type: "transport", title: "機場報到 & 免稅店", meta: "T1", note: "預留 2-3 小時\n伴手禮購買" },
+                    { time: "13:10", end: "15:05", type: "transport", title: "飛機: KIX → TPE", meta: "2h 40m", note: "航班號: JXxxx (請確認)" },
+                    { time: "16:00", end: "16:20", type: "transport", title: "機捷: TPE → 高鐵", meta: "TWD 80", note: "往桃園高鐵站" }
+                ]
+            }
+        ];
+
+        let currentDay = 1;
+
+        function init() { switchDay(1); }
+
+        function switchDay(day) {
+            currentDay = day;
+            const data = tripData.find(d => d.day === day);
+            document.documentElement.style.setProperty('--current-theme', data.themeColor);
+            
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active');
+                if(parseInt(el.innerText.replace('D','')) === day) el.classList.add('active');
+            });
+
+            document.getElementById('currentDate').innerText = data.date;
+            document.getElementById('locationTitle').innerText = `📍 ${data.location}`;
+            
+            // [動態更新天氣連結]
+            // AccuWeather URL 格式: /zh/jp/{slug}/{code}/daily-weather-forecast/{code}?day={day}
+            if(data.accuweather) {
+                const aw = data.accuweather;
+                const link = `https://www.accuweather.com/zh/jp/${aw.slug}/${aw.code}/daily-weather-forecast/${aw.code}?day=${aw.day}`;
+                document.getElementById('weatherLink').href = link;
+            }
+
+            // 模擬顯示氣溫 (僅為視覺，實際連結點擊後會顯示準確資訊)
+            const weathers = [
+                { temp: "24°", rain: "20%" },
+                { temp: "22°", rain: "10%" },
+                { temp: "25°", rain: "0%" },
+                { temp: "23°", rain: "40%" },
+                { temp: "26°", rain: "10%" }
+            ];
+            document.getElementById('weatherTemp').innerText = weathers[day-1].temp;
+            document.getElementById('rainProb').innerText = weathers[day-1].rain;
+
+            const container = document.getElementById('timelineContent');
+            container.innerHTML = '';
+
+            data.events.forEach((event, index) => {
+                const row = document.createElement('div');
+                row.className = 'event-row';
+                row.style.animationDelay = `${index * 0.08}s`; 
+
+                // Icon 判斷邏輯 (FontAwesome)
+                let iconClass = '';
+                let tagName = getTagName(event.type);
+
+                if(event.type === 'transport') {
+                    if(event.title.includes('飛機')) iconClass = 'fa-plane';
+                    else if(event.title.includes('新幹線') || event.title.includes('高鐵')) iconClass = 'fa-train-subway';
+                    else if(event.title.includes('巴士')) iconClass = 'fa-bus';
+                    else iconClass = 'fa-train'; 
+                } else if(event.type === 'stay') {
+                    iconClass = 'fa-bed';
+                } else if(event.type === 'food') {
+                    iconClass = 'fa-utensils';
+                } else if(event.type === 'spot') {
+                    iconClass = 'fa-camera';
+                } else {
+                    iconClass = 'fa-star';
+                }
+
+                const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.title)}`;
+                const introHtml = event.intro ? `<div class="card-intro">💡 ${event.intro}</div>` : '';
+
+                row.innerHTML = `
+                    <div class="time-col">
+                        <div>${event.time}</div>
+                    </div>
+                    <div class="card-col">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="tag ${event.type}">
+                                    <i class="fa-solid ${iconClass}"></i> ${tagName}
+                                </span>
+                                <span style="font-size:0.8rem; color:#ccc;">${event.end === '~' ? '' : '➜ ' + event.end}</span>
+                            </div>
+                            <h3 class="card-title">${event.title}</h3>
+                            <div class="card-meta">
+                                <span class="meta-item">💰 ${event.meta}</span>
+                            </div>
+                            ${introHtml}
+                            <div class="actions">
+                                <button class="btn-action" onclick="showModal('${event.title}', '${event.note.replace(/\n/g, '<br/>')}')">
+                                    <i class="fa-solid fa-paperclip"></i> 詳情
+                                </button>
+                                <a href="${mapLink}" target="_blank" class="btn-action">
+                                    <i class="fa-solid fa-map-location-dot"></i> 導航
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+            document.querySelector('.timeline-container').scrollTop = 0;
+        }
+
+        function getTagName(type) {
+            const map = { 'transport': '交通', 'stay': '住宿', 'food': '美食', 'spot': '景點' };
+            return map[type] || '行程';
+        }
+
+        function showModal(title, content) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalBody').innerHTML = content || '暫無詳細備註';
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('show');
+            modal.style.display = 'flex';
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== document.getElementById('infoModal') && e.target.className !== 'modal-close') return;
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('show');
+            setTimeout(() => modal.style.display = 'none', 300);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Sheets 安全資料讀取器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        #data-container {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .loading {
+            color: #007bff;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🔒 受保護的 Google Sheets 資料</h1>
+    <p>這是一個從 Google Apps Script 安全端點讀取資料的 Web App。由於存取權限設為「只有我自己」，您需要登入您的 Google 帳戶才能看到資料。</p>
+    <div id="data-container">
+        <p class="loading" id="status-message">正在加載資料，請稍候...</p>
+        <div id="data-output"></div>
+    </div>
+
+    <script>
+        // ==========================================================
+        // *** 步驟 1: 設定您的 Apps Script URL 和秘密金鑰 ***
+        // ==========================================================
+        
+        // 請替換為您從 Apps Script 部署獲得的 URL (您之前提供的連結)
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzXLFDvvMUq4OaCypE2cBot6ok-Tmk78RKpak7N_j76_Sfv2nXmRDK-bi1bXPZyTJvz-g/exec';
+
+        // 請替換為您在 Apps Script Code.gs 中設定的 SECRET_KEY。
+        // 如果您沒有設定金鑰，請將此處設為空字串: ''
+        const SECRET_KEY = '123'; 
+
+        // ==========================================================
+        
+        const dataOutput = document.getElementById('data-output');
+        const statusMessage = document.getElementById('status-message');
+
+        /**
+         * 處理從 Google Sheets 獲取的資料（陣列格式），並將其渲染為 HTML 表格。
+         * @param {Array<Array<any>>} data - 從 Sheets 傳回的二維資料陣列。
+         */
+        function renderTable(data) {
+            if (!data || data.length === 0) {
+                dataOutput.innerHTML = '<p>試算表中沒有資料。</p>';
+                return;
+            }
+
+            // 假設第一行是標題 (Headers)
+            const headers = data[0];
+            const rows = data.slice(1);
+
+            let tableHTML = '<table><thead><tr>';
+            
+            // 建立表頭
+            headers.forEach(header => {
+                tableHTML += `<th>${header}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // 建立資料列
+            rows.forEach(row => {
+                tableHTML += '<tr>';
+                row.forEach(cell => {
+                    tableHTML += `<td>${cell}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            dataOutput.innerHTML = tableHTML;
+        }
+
+
+        /**
+         * 讀取 Google Sheets 資料的主函數
+         */
+        async function loadData() {
+            statusMessage.textContent = '正在連接 Google 服務...';
+            
+            // 構建包含秘密金鑰的完整 URL
+            const url = SECRET_KEY 
+                ? `${GAS_WEB_APP_URL}?key=${SECRET_KEY}` 
+                : GAS_WEB_APP_URL;
+
+            try {
+                const response = await fetch(url);
+
+                if (response.status === 401) {
+                    // Unauthorized Access (通常是由於 SECRET_KEY 不匹配)
+                    throw new Error("401 Unauthorized: 秘密金鑰無效或存取受限。");
+                }
+                
+                if (!response.ok) {
+                    // 這裡通常是處理 Apps Script 內部的錯誤，或者 Google 身份驗證失敗
+                    const errorText = await response.text();
+                    // 強調需要登入
+                    throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}. 請確認您已在瀏覽器中登入 Apps Script 部署者的 Google 帳戶。訊息: ${errorText.substring(0, 100)}...`);
+                }
+                
+                const data = await response.json();
+                
+                // 成功加載後，移除狀態訊息，並渲染表格
+                statusMessage.style.display = 'none';
+                renderTable(data);
+
+            } catch (error) {
+                console.error("讀取資料時發生錯誤:", error);
+                // 顯示錯誤訊息
+                statusMessage.classList.remove('loading');
+                statusMessage.classList.add('error');
+                statusMessage.textContent = `❌ 資料加載失敗。請檢查您的 Apps Script 部署狀態或 Google 登入狀態。錯誤詳情: ${error.message}`;
+            }
+        }
+
+        // 頁面加載完成後立即執行讀取資料函數
+        window.onload = loadData;
+    </script>
+
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAuth & Google Sheets 效能監控</title>
+    <title>OAuth & Google Sheets 效能監控 (Cloud Run)</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -51,7 +51,7 @@
             text-align: center;
         }
 
-        /* 其他 CSS 樣式保持不變... */
+        /* 其他 CSS 樣式 */
         .g_id_signin { display: inline-block; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -63,14 +63,14 @@
 </head>
 <body>
 
-    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (效能監控)</h1>
+    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (Cloud Run 高效模式)</h1>
     
     <div id="loading-initial">
         正在檢查登入狀態並預熱伺服器... <span class="spinner"></span>
     </div>
 
     <div id="login-container" class="hidden">
-        <p>請使用您的 Google 帳號登入來驗證身份，只有被授權的郵箱可以存取資料。</p>
+        <p>請使用您的 Google 帳號登入來驗證身份。</p>
         
         <div id="g_id_onload"
              data-client_id="146126518344-5oevbof7u5gs87ip39ibvidpf0a7r1ns.apps.googleusercontent.com"
@@ -108,9 +108,9 @@
 
     <script>
         // =================================================================
-        // *** 替換為您最新的 Apps Script URL (JWT 驗證 Web App) ***
+        // *** 替換為新的 Cloud Run/GCF URL ***
         // =================================================================
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxmPvHlIJI6xmsLwLphBHY51cMVnjVn7PjxtlaN8gnQksfOOEhL0y-PSosMeJIms27f/exec'; 
+        const GCF_API_URL = 'https://test-bookkeeping-146126518344.asia-east1.run.app'; 
         // -----------------------------------------------------------------
         
         const dataContainer = document.getElementById('data-container');
@@ -121,23 +121,16 @@
         const loadingInitial = document.getElementById('loading-initial');
         const timingOutput = document.getElementById('timing-output');
 
-        // *** CSV 和 renderTable 函數 (保持不變) ***
 
-        function parseCSV(csvText) {
-            const lines = csvText.replace(/\r\n/g, '\n').split('\n').filter(line => line.trim() !== '');
-            if (lines.length === 0) return [];
-            
-            return lines.map(line => {
-                return line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
-            });
-        }
-
+        /**
+         * 將二維陣列（來自 Cloud Run）渲染為 HTML 表格。
+         */
         function renderTable(data) {
             if (!data || data.length === 0) {
                 dataOutput.innerHTML = '<p>試算表中沒有資料或解析失敗。</p>';
                 return;
             }
-            // ... (表格渲染邏輯保持不變) ...
+
             const headers = data[0];
             const rows = data.slice(1);
 
@@ -161,88 +154,80 @@
             loginContainer.classList.add('hidden');
             dataContainer.classList.remove('hidden');
             errorArea.classList.add('hidden');
-            dataOutput.innerHTML = ''; // 清空舊資料
-            timingOutput.innerHTML = ''; // 清空舊時間
+            dataOutput.innerHTML = ''; 
+            timingOutput.innerHTML = '';
 
             const idToken = response.credential;
             loadData(idToken);
         }
         
         // ** 前端預熱函數 **
-        function warmUpGas() {
-            const warmUpUrl = GAS_WEB_APP_URL + '?action=warmup'; 
+        function warmUpGcf() {
+            // 注意：Cloud Run 已經設定 Min Instances=1，預熱的必要性降低，但作為保險仍保留。
+            const warmUpUrl = GCF_API_URL + '?action=warmup'; 
             fetch(warmUpUrl, { method: 'GET' })
-                .catch(error => {
-                    // 預熱失敗不影響主流程，忽略錯誤
-                });
+                .catch(error => {});
         }
 
         // 檢查登入狀態並嘗試自動登入
         function checkLoginStatus() {
-            // 在檢查登入狀態的同時，開始預熱 Apps Script
-            warmUpGas(); 
+            warmUpGcf(); 
             
             google.accounts.id.prompt((notification) => {
                 loadingInitial.classList.add('hidden'); 
                 
                 if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
-                    // 如果沒有自動登入或使用者關閉了提示，顯示登入按鈕
                     loginContainer.classList.remove('hidden');
                 }
             });
         }
 
-        // 呼叫 Apps Script API 的函數 (使用 GET，繞過 CORS 預檢)
+        // 呼叫 Cloud Run API 進行驗證和資料獲取 (單次請求完成)
         async function loadData(idToken) {
             
-            let authStartTime = performance.now();
-            dataOutput.innerHTML = '<h4>正在驗證身份... <span class="spinner"></span></h4>';
+            let startTime = performance.now();
+            dataOutput.innerHTML = '<h4>正在驗證身份並獲取資料... <span class="spinner"></span></h4>';
 
-            const authUrl = GAS_WEB_APP_URL + '?id_token=' + idToken;
-            let csvDataUrl = '';
+            // 確保 ID Token 作為 URL 參數傳遞 (GET 模式)
+            const apiUrl = GCF_API_URL + '?id_token=' + idToken;
 
             try {
-                // --- 1. GET 請求到 Apps Script 進行 JWT 驗證 ---
-                const authResponse = await fetch(authUrl, { method: 'GET' });
-                let authEndTime = performance.now();
+                // --- 1. GET 請求到 Cloud Run 進行 JWT 驗證並直接獲取 JSON 資料 ---
+                const response = await fetch(apiUrl, { method: 'GET' });
+                let endTime = performance.now();
                 
-                const authResultText = await authResponse.text();
+                // 計算總耗時 (身份驗證 + 資料獲取)
+                const totalTime = ((endTime - startTime) / 1000).toFixed(2);
                 
-                // 計算並記錄身份驗證時間
-                const authTime = ((authEndTime - authStartTime) / 1000).toFixed(2);
+                const responseText = await response.text();
                 
-                if (!authResponse.ok || authResultText.startsWith('Auth Error:')) {
-                    throw new Error(authResultText);
+                // 檢查響應是否成功
+                if (!response.ok) {
+                     // 嘗試解析錯誤訊息
+                     let errorMessageText = responseText;
+                     try {
+                        const errorData = JSON.parse(responseText);
+                        errorMessageText = errorData.message || responseText;
+                     } catch(e) {
+                        // 如果不是 JSON，則使用原始文本
+                     }
+                     throw new Error(errorMessageText);
                 }
                 
-                const authData = JSON.parse(authResultText);
-                csvDataUrl = authData.csvUrl;
-
-                // 更新狀態並開始計時資料下載
-                let dataStartTime = performance.now();
-                dataOutput.innerHTML = '<h4>✅ 驗證成功！正在從 Google 伺服器下載資料... <span class="spinner"></span></h4>';
-
-                // --- 2. GET 請求到公開的 CSV 連結 (CORS 友好) ---
-                const csvResponse = await fetch(csvDataUrl);
-                let dataEndTime = performance.now();
+                const result = JSON.parse(responseText);
                 
-                // 計算並記錄資料下載時間
-                const dataTime = ((dataEndTime - dataStartTime) / 1000).toFixed(2);
-                
-                if (!csvResponse.ok) {
-                     throw new Error(`無法從公開連結獲取資料。狀態碼: ${csvResponse.status}`);
+                if (result.status === 'error') {
+                    throw new Error(result.message);
                 }
+
+                const sheetData = result.data; // 直接從 JSON 獲取二維陣列
+
+                // --- 2. 解析並渲染資料和時間 ---
+                renderTable(sheetData);
                 
-                const csvText = await csvResponse.text();
-                
-                // --- 3. 解析並渲染資料和時間 ---
-                const data = parseCSV(csvText);
-                renderTable(data);
-                
-                // 顯示計時結果
+                // 顯示計時結果 
                 timingOutput.innerHTML = `
-                    ⏱️ 身份驗證耗時: **${authTime} 秒**<br>
-                    ⬇️ 取得資料耗時: **${dataTime} 秒**
+                    ⏱️ **總耗時:** **${totalTime} 秒** (身份驗證及資料獲取)
                 `;
 
             } catch (error) {
@@ -252,7 +237,7 @@
                 errorArea.classList.remove('hidden');
                 loginContainer.classList.remove('hidden'); 
                 
-                let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CSV 連結。";
+                let displayMessage = error.message || "Failed to fetch. 請檢查 Cloud Run URL、服務帳號權限或試算表 ID。";
                 errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${displayMessage}`;
             }
         }

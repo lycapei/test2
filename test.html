@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAuth & Google Sheets 安全存取</title>
+    <title>OAuth & Google Sheets 安全存取 (CSV 模式)</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -30,10 +30,11 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
+            font-size: 0.9em;
         }
         th, td {
             border: 1px solid #ddd;
-            padding: 10px;
+            padding: 8px;
             text-align: left;
         }
         th {
@@ -49,11 +50,15 @@
             border: none;
             border-radius: 5px;
         }
+        #error-message {
+            color: #333;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🔒 JWT 身份驗證 - Google Sheets 資料</h1>
+    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (CSV)</h1>
     <div id="login-container">
         <p>請使用您的 Google 帳號登入來驗證身份，只有被授權的郵箱可以存取資料。</p>
         
@@ -76,7 +81,7 @@
     </div>
 
     <div id="data-container" class="hidden">
-        <h2 style="color: #007bff;">✅ 驗證成功！正在載入資料...</h2>
+        <h2 style="color: #007bff;">✅ 身份驗證成功！</h2>
         <div id="data-output"></div>
         <button onclick="logout()">登出</button>
     </div>
@@ -90,12 +95,11 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
-        // ==========================================================
-        // *** 替換為您最新的單一 Web App (C) URL ***
-        // ==========================================================
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwo5dUbyI2aikp8XC0KTKmY2vL_lS0sRbFqJrEvJJM/dev'; 
-
-        // ----------------------------------------------------------
+        // =================================================================
+        // *** 替換為您最新的 JWT 驗證 Apps Script URL (/exec 結尾) ***
+        // =================================================================
+        const GAS_WEB_APP_URL = 'YOUR_NEW_AUTH_APPS_SCRIPT_URL_HERE'; 
+        // -----------------------------------------------------------------
         
         const dataContainer = document.getElementById('data-container');
         const loginContainer = document.getElementById('login-container');
@@ -104,12 +108,28 @@
         const errorMessage = document.getElementById('error-message');
 
         /**
+         * 將 CSV 文本轉換為二維陣列（簡化版，不處理複雜引號）
+         * @param {string} csvText - CSV 原始字串。
+         * @returns {Array<Array<string>>}
+         */
+        function parseCSV(csvText) {
+            // 移除空行，並將 CRLF 轉換為 LF 以保證一致性
+            const lines = csvText.replace(/\r\n/g, '\n').split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) return [];
+            
+            return lines.map(line => {
+                // 簡單地按逗號分隔，並移除首尾的空白或引號
+                return line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
+            });
+        }
+
+        /**
          * 處理從 Apps Script 獲取的資料，並將其渲染為 HTML 表格。
          * @param {Array<Array<any>>} data - 從 Sheets 傳回的二維資料陣列。
          */
         function renderTable(data) {
             if (!data || data.length === 0) {
-                dataOutput.innerHTML = '<p>試算表中沒有資料。</p>';
+                dataOutput.innerHTML = '<p>試算表中沒有資料或解析失敗。</p>';
                 return;
             }
 
@@ -128,7 +148,9 @@
             // 建立資料列
             rows.forEach(row => {
                 tableHTML += '<tr>';
-                row.forEach(cell => {
+                // 確保行數據長度與表頭一致，避免表格錯位
+                const displayRow = row.slice(0, headers.length);
+                displayRow.forEach(cell => {
                     tableHTML += `<td>${cell}</td>`;
                 });
                 tableHTML += '</tr>';
@@ -150,32 +172,42 @@
 
         // 呼叫 Apps Script API 的函數 (使用 POST)
         async function loadData(idToken) {
-            dataOutput.innerHTML = '<h4>正在使用 JWT 權杖請求資料...</h4>';
+            dataOutput.innerHTML = '<h4>正在驗證身份並獲取資料連結...</h4>';
 
-            const url = GAS_WEB_APP_URL;
+            const authUrl = https://script.google.com/macros/s/AKfycbyylJbbR3AreQbw1cfOKhDahRZQbTxpyL_yFCAF-DtHwiS3m4PYy_pk7AhGryA5gLX-/exec;
+            let csvDataUrl = '';
 
             try {
-                // *** 關鍵變更：改為 POST 請求，將 token 放在 body 中 ***
-                const response = await fetch(url, {
+                // --- 1. POST 請求到 Apps Script 進行 JWT 驗證 ---
+                const authResponse = await fetch(authUrl, {
                     method: 'POST', 
-                    headers: {
-                        'Content-Type': 'application/json' 
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id_token: idToken }) 
                 });
 
-                // Apps Script 成功響應 (200 OK)
-                const responseText = await response.text(); 
-
-                if (!response.ok || responseText.startsWith('Error:')) {
-                    // 如果 Apps Script 內部返回了錯誤訊息 (例如：Unauthorized user)
-                    throw new Error(responseText);
+                const authResultText = await authResponse.text();
+                
+                // 檢查 Apps Script 的響應是否成功
+                if (!authResponse.ok || authResultText.startsWith('Auth Error:')) {
+                    throw new Error(authResultText);
                 }
                 
-                // 成功獲取 JSON 資料
-                const data = JSON.parse(responseText); 
+                const authData = JSON.parse(authResultText);
+                csvDataUrl = authData.csvUrl; // 從 Apps Script 獲取公開 CSV 連結
+
+                dataOutput.innerHTML = '<h4>✅ 驗證成功！正在從 Google 伺服器載入 CSV 資料...</h4>';
+
+                // --- 2. GET 請求到公開的 CSV 連結 (CORS 友好) ---
+                const csvResponse = await fetch(csvDataUrl);
                 
-                // 成功，渲染資料
+                if (!csvResponse.ok) {
+                     throw new Error(`無法從公開連結獲取資料。狀態碼: ${csvResponse.status}`);
+                }
+                
+                const csvText = await csvResponse.text();
+                
+                // --- 3. 解析並渲染資料 ---
+                const data = parseCSV(csvText);
                 renderTable(data);
 
             } catch (error) {
@@ -184,8 +216,8 @@
                 dataContainer.classList.add('hidden');
                 errorArea.classList.remove('hidden');
                 
-                // 顯示更友好的錯誤訊息
-                let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CORS 配置是否正確。";
+                // 顯示錯誤訊息
+                let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CSV 連結。";
                 errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${displayMessage}`;
             }
         }

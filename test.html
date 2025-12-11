@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAuth & Google Sheets 安全存取 (自動登入)</title>
+    <title>OAuth & Google Sheets 效能監控</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -20,54 +20,53 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        /* 頁面載入時，登入和錯誤區塊預設隱藏 */
         .hidden { 
             display: none; 
         }
-        .g_id_signin { 
-            display: inline-block; 
+        /* 視覺優化：載入動畫 */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: #007bff;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 效能計時區塊 */
+        .timing-info {
             margin-top: 15px;
+            padding: 10px;
+            border-top: 1px solid #eee;
             font-size: 0.9em;
+            color: #666;
+            text-align: center;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #007bff;
-            color: white;
-        }
-        button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            cursor: pointer;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        #error-message {
-            color: #333;
-            font-weight: bold;
-        }
-        #loading-initial {
-            padding: 20px;
-            font-size: 1.2em;
-            color: #555;
-        }
+
+        /* 其他 CSS 樣式保持不變... */
+        .g_id_signin { display: inline-block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        button { margin-top: 20px; padding: 10px 20px; cursor: pointer; background-color: #dc3545; color: white; border: none; border-radius: 5px; }
+        #error-message { color: #333; font-weight: bold; }
+        #loading-initial { padding: 20px; font-size: 1.2em; color: #555; }
     </style>
 </head>
 <body>
 
-    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (自動載入)</h1>
+    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (效能監控)</h1>
     
     <div id="loading-initial">
-        正在檢查登入狀態...
+        正在檢查登入狀態並預熱伺服器... <span class="spinner"></span>
     </div>
 
     <div id="login-container" class="hidden">
@@ -79,7 +78,8 @@
              data-ux_mode="popup"
              data-callback="handleCredentialResponse"
              data-auto_prompt="false"
-             data-auto_select="true"> </div>
+             data-auto_select="true">
+        </div>
 
         <div class="g_id_signin" 
              data-type="standard" 
@@ -93,6 +93,7 @@
 
     <div id="data-container" class="hidden">
         <h2 style="color: #007bff;">✅ 身份驗證成功！</h2>
+        <div id="timing-output" class="timing-info"></div>
         <div id="data-output"></div>
         <button onclick="logout()">登出</button>
     </div>
@@ -118,13 +119,10 @@
         const dataOutput = document.getElementById('data-output');
         const errorMessage = document.getElementById('error-message');
         const loadingInitial = document.getElementById('loading-initial');
+        const timingOutput = document.getElementById('timing-output');
 
+        // *** CSV 和 renderTable 函數 (保持不變) ***
 
-        // *** CSV 和 renderTable 函數 (省略，保持不變) ***
-
-        /**
-         * 將 CSV 文本轉換為二維陣列（簡化版，不處理複雜引號）
-         */
         function parseCSV(csvText) {
             const lines = csvText.replace(/\r\n/g, '\n').split('\n').filter(line => line.trim() !== '');
             if (lines.length === 0) return [];
@@ -134,95 +132,102 @@
             });
         }
 
-        /**
-         * 將資料渲染為 HTML 表格。
-         */
         function renderTable(data) {
             if (!data || data.length === 0) {
                 dataOutput.innerHTML = '<p>試算表中沒有資料或解析失敗。</p>';
                 return;
             }
-
+            // ... (表格渲染邏輯保持不變) ...
             const headers = data[0];
             const rows = data.slice(1);
 
             let tableHTML = '<table><thead><tr>';
-            
-            headers.forEach(header => {
-                tableHTML += `<th>${header}</th>`;
-            });
+            headers.forEach(header => { tableHTML += `<th>${header}</th>`; });
             tableHTML += '</tr></thead><tbody>';
 
             rows.forEach(row => {
                 tableHTML += '<tr>';
                 const displayRow = row.slice(0, headers.length);
-                displayRow.forEach(cell => {
-                    tableHTML += `<td>${cell}</td>`;
-                });
+                displayRow.forEach(cell => { tableHTML += `<td>${cell}</td>`; });
                 tableHTML += '</tr>';
             });
-
             tableHTML += '</tbody></table>';
             dataOutput.innerHTML = tableHTML;
         }
         
         // 登入成功後，此函數會被呼叫
         function handleCredentialResponse(response) {
-            loadingInitial.classList.add('hidden'); // 隱藏初始載入
+            loadingInitial.classList.add('hidden');
             loginContainer.classList.add('hidden');
             dataContainer.classList.remove('hidden');
             errorArea.classList.add('hidden');
+            dataOutput.innerHTML = ''; // 清空舊資料
+            timingOutput.innerHTML = ''; // 清空舊時間
 
             const idToken = response.credential;
             loadData(idToken);
         }
         
-        // ** 新增函數：檢查登入狀態 **
+        // ** 前端預熱函數 **
+        function warmUpGas() {
+            const warmUpUrl = GAS_WEB_APP_URL + '?action=warmup'; 
+            fetch(warmUpUrl, { method: 'GET' })
+                .catch(error => {
+                    // 預熱失敗不影響主流程，忽略錯誤
+                });
+        }
+
+        // 檢查登入狀態並嘗試自動登入
         function checkLoginStatus() {
-            // 使用 google.accounts.id.prompt() 觸發自動登入流程
-            // 如果 GSI 找到一個可用的帳號，它會直接呼叫 handleCredentialResponse
-            // 如果沒有，它不會做任何事情
+            // 在檢查登入狀態的同時，開始預熱 Apps Script
+            warmUpGas(); 
+            
             google.accounts.id.prompt((notification) => {
-                loadingInitial.classList.add('hidden'); // 無論結果如何，都隱藏初始載入訊息
+                loadingInitial.classList.add('hidden'); 
                 
                 if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
                     // 如果沒有自動登入或使用者關閉了提示，顯示登入按鈕
                     loginContainer.classList.remove('hidden');
                 }
-                
-                // 如果 isCredentialDilivered() 為 true，handleCredentialResponse 會被呼叫
-                // 我們不需要在這裡做額外的處理
             });
         }
 
-
         // 呼叫 Apps Script API 的函數 (使用 GET，繞過 CORS 預檢)
         async function loadData(idToken) {
-            dataOutput.innerHTML = '<h4>正在驗證身份並獲取資料連結...</h4>';
+            
+            let authStartTime = performance.now();
+            dataOutput.innerHTML = '<h4>正在驗證身份... <span class="spinner"></span></h4>';
 
             const authUrl = GAS_WEB_APP_URL + '?id_token=' + idToken;
             let csvDataUrl = '';
 
             try {
                 // --- 1. GET 請求到 Apps Script 進行 JWT 驗證 ---
-                const authResponse = await fetch(authUrl, {
-                    method: 'GET'
-                });
-
+                const authResponse = await fetch(authUrl, { method: 'GET' });
+                let authEndTime = performance.now();
+                
                 const authResultText = await authResponse.text();
                 
-                // 檢查 Apps Script 的響應是否成功
+                // 計算並記錄身份驗證時間
+                const authTime = ((authEndTime - authStartTime) / 1000).toFixed(2);
+                
                 if (!authResponse.ok || authResultText.startsWith('Auth Error:')) {
                     throw new Error(authResultText);
                 }
                 
                 const authData = JSON.parse(authResultText);
-                csvDataUrl = authData.csvUrl; // 從 Apps Script 獲取公開 CSV 連結
+                csvDataUrl = authData.csvUrl;
 
-                dataOutput.innerHTML = '<h4>✅ 驗證成功！正在從 Google 伺服器載入 CSV 資料...</h4>';
+                // 更新狀態並開始計時資料下載
+                let dataStartTime = performance.now();
+                dataOutput.innerHTML = '<h4>✅ 驗證成功！正在從 Google 伺服器下載資料... <span class="spinner"></span></h4>';
 
                 // --- 2. GET 請求到公開的 CSV 連結 (CORS 友好) ---
                 const csvResponse = await fetch(csvDataUrl);
+                let dataEndTime = performance.now();
+                
+                // 計算並記錄資料下載時間
+                const dataTime = ((dataEndTime - dataStartTime) / 1000).toFixed(2);
                 
                 if (!csvResponse.ok) {
                      throw new Error(`無法從公開連結獲取資料。狀態碼: ${csvResponse.status}`);
@@ -230,27 +235,30 @@
                 
                 const csvText = await csvResponse.text();
                 
-                // --- 3. 解析並渲染資料 ---
+                // --- 3. 解析並渲染資料和時間 ---
                 const data = parseCSV(csvText);
                 renderTable(data);
+                
+                // 顯示計時結果
+                timingOutput.innerHTML = `
+                    ⏱️ 身份驗證耗時: **${authTime} 秒**<br>
+                    ⬇️ 取得資料耗時: **${dataTime} 秒**
+                `;
 
             } catch (error) {
                 console.error("讀取資料時發生錯誤:", error);
                 
                 dataContainer.classList.add('hidden');
                 errorArea.classList.remove('hidden');
-                loginContainer.classList.remove('hidden'); // 錯誤時重新顯示登入按鈕
+                loginContainer.classList.remove('hidden'); 
                 
-                // 顯示錯誤訊息
                 let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CSV 連結。";
                 errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${displayMessage}`;
             }
         }
 
         function logout() {
-            // 清除 Google 登入狀態
             google.accounts.id.disableAutoSelect(); 
-            // 重新整理頁面
             location.reload(); 
         }
 

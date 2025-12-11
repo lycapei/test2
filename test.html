@@ -3,74 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Sheets 安全資料讀取器</title>
+    <title>OAuth & Google Sheets 安全存取</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 50px; 
+            text-align: center; 
             background-color: #f4f4f4;
         }
-        h1 {
-            color: #333;
-        }
-        #data-container {
-            margin-top: 20px;
-            background-color: #fff;
-            padding: 15px;
+        #data-container { 
+            margin-top: 30px; 
+            padding: 20px; 
+            border: 1px solid #ccc; 
+            background-color: #fff; 
+            text-align: left;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .loading {
-            color: #007bff;
+        .hidden { 
+            display: none; 
         }
-        .error {
-            color: #dc3545;
-            font-weight: bold;
+        .g_id_signin { 
+            display: inline-block; 
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 15px;
         }
         th, td {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
         }
         th {
             background-color: #007bff;
             color: white;
         }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🔒 受保護的 Google Sheets 資料</h1>
-    <p>這是一個從 Google Apps Script 安全端點讀取資料的 Web App。由於存取權限設為「只有我自己」，您需要登入您的 Google 帳戶才能看到資料。</p>
-    <div id="data-container">
-        <p class="loading" id="status-message">正在加載資料，請稍候...</p>
-        <div id="data-output"></div>
+    <h1>🔒 JWT 身份驗證 - Google Sheets 資料</h1>
+    <div id="login-container">
+        <p>請使用您的 Google 帳號登入來驗證身份，只有被授權的郵箱可以存取資料。</p>
+        
+        <div id="g_id_onload"
+             data-client_id="146126518344-5oevbof7u5gs87ip39ibvidpf0a7r1ns.apps.googleusercontent.com"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+
+        <div class="g_id_signin" 
+             data-type="standard" 
+             data-shape="rectangular" 
+             data-theme="outline" 
+             data-text="signin_with" 
+             data-size="large" 
+             data-locale="zh_TW">
+        </div>
     </div>
+
+    <div id="data-container" class="hidden">
+        <h2 style="color: #007bff;">✅ 驗證成功！正在載入資料...</h2>
+        <div id="data-output"></div>
+        <button onclick="logout()">登出</button>
+    </div>
+    
+    <div id="error-area" class="hidden">
+        <h2 style="color: red;">❌ 存取失敗或未授權</h2>
+        <p id="error-message"></p>
+        <button onclick="logout()">重新登入/檢查</button>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
         // ==========================================================
-        // *** 步驟 1: 設定您的 Apps Script URL 和秘密金鑰 ***
+        // *** 請替換為您重新部署後的 Apps Script URL ***
         // ==========================================================
-        
-        // 請替換為您從 Apps Script 部署獲得的 URL (您之前提供的連結)
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwoctN-ZF_6Nn6fjFlqyX9q3tjMe2zT_dGHOcTvtL0AKt7K2Ohqh_5Zkpd1D1CuyXLDTQ/exec';
+        const GAS_WEB_APP_URL = 'YOUR_APPS_SCRIPT_URL_HERE'; 
 
-        // 請替換為您在 Apps Script Code.gs 中設定的 SECRET_KEY。
-        // 如果您沒有設定金鑰，請將此處設為空字串: ''
-        const SECRET_KEY = '123'; 
-
-        // ==========================================================
+        // ----------------------------------------------------------
         
+        const dataContainer = document.getElementById('data-container');
+        const loginContainer = document.getElementById('login-container');
+        const errorArea = document.getElementById('error-area');
         const dataOutput = document.getElementById('data-output');
-        const statusMessage = document.getElementById('status-message');
+        const errorMessage = document.getElementById('error-message');
 
         /**
-         * 處理從 Google Sheets 獲取的資料（陣列格式），並將其渲染為 HTML 表格。
+         * 處理從 Apps Script 獲取的資料，並將其渲染為 HTML 表格。
          * @param {Array<Array<any>>} data - 從 Sheets 傳回的二維資料陣列。
          */
         function renderTable(data) {
@@ -103,51 +137,61 @@
             tableHTML += '</tbody></table>';
             dataOutput.innerHTML = tableHTML;
         }
+        
+        // 登入成功後，此函數會被呼叫
+        function handleCredentialResponse(response) {
+            loginContainer.classList.add('hidden');
+            dataContainer.classList.remove('hidden');
+            errorArea.classList.add('hidden');
 
+            const idToken = response.credential;
+            loadData(idToken);
+        }
 
-        /**
-         * 讀取 Google Sheets 資料的主函數
-         */
-        async function loadData() {
-            statusMessage.textContent = '正在連接 Google 服務...';
-            
-            // 構建包含秘密金鑰的完整 URL
-            const url = SECRET_KEY 
-                ? `${GAS_WEB_APP_URL}?key=${SECRET_KEY}` 
-                : GAS_WEB_APP_URL;
+        // 呼叫 Apps Script API 的函數
+        async function loadData(idToken) {
+            dataOutput.innerHTML = '<h4>正在使用 JWT 權杖請求資料...</h4>';
+
+            // 將 ID 權杖作為參數傳遞給 Apps Script
+            const url = `${GAS_WEB_APP_URL}?id_token=${idToken}`;
 
             try {
                 const response = await fetch(url);
+                const responseText = await response.text();
 
-                if (response.status === 401) {
-                    // Unauthorized Access (通常是由於 SECRET_KEY 不匹配)
-                    throw new Error("401 Unauthorized: 秘密金鑰無效或存取受限。");
-                }
-                
                 if (!response.ok) {
-                    // 這裡通常是處理 Apps Script 內部的錯誤，或者 Google 身份驗證失敗
-                    const errorText = await response.text();
-                    // 強調需要登入
-                    throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}. 請確認您已在瀏覽器中登入 Apps Script 部署者的 Google 帳戶。訊息: ${errorText.substring(0, 100)}...`);
+                    // 根據 Apps Script 返回的 HTTP 錯誤碼和內容顯示訊息
+                    let msg = responseText.substring(0, 200) || '請檢查 Apps Script 伺服器記錄或權限設定。';
+                    if (response.status === 403) {
+                         msg = "403 存取拒絕。您的 Google 郵箱未在 Apps Script 程式碼 (Code.gs) 中被授權。";
+                    } else if (response.status === 401) {
+                         msg = "401 認證失敗。JWT 權杖無效或已過期。";
+                    }
+                    throw new Error(msg);
                 }
                 
-                const data = await response.json();
+                // 成功獲取 JSON 資料
+                const data = JSON.parse(responseText); 
                 
-                // 成功加載後，移除狀態訊息，並渲染表格
-                statusMessage.style.display = 'none';
+                // 成功，渲染資料
                 renderTable(data);
 
             } catch (error) {
                 console.error("讀取資料時發生錯誤:", error);
-                // 顯示錯誤訊息
-                statusMessage.classList.remove('loading');
-                statusMessage.classList.add('error');
-                statusMessage.textContent = `❌ 資料加載失敗。請檢查您的 Apps Script 部署狀態或 Google 登入狀態。錯誤詳情: ${error.message}`;
+                
+                dataContainer.classList.add('hidden');
+                errorArea.classList.remove('hidden');
+                errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${error.message}`;
             }
         }
 
-        // 頁面加載完成後立即執行讀取資料函數
-        window.onload = loadData;
+        function logout() {
+            // 清除 Google 登入狀態 (禁用自動選取)
+            google.accounts.id.disableAutoSelect(); 
+            // 重新整理頁面，顯示登入按鈕
+            location.reload(); 
+        }
+        
     </script>
 
 </body>

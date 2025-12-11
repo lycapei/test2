@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OAuth & Google Sheets 安全存取 (GET 模式)</title>
+    <title>OAuth & Google Sheets 安全存取 (自動登入)</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -20,6 +20,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        /* 頁面載入時，登入和錯誤區塊預設隱藏 */
         .hidden { 
             display: none; 
         }
@@ -54,12 +55,22 @@
             color: #333;
             font-weight: bold;
         }
+        #loading-initial {
+            padding: 20px;
+            font-size: 1.2em;
+            color: #555;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (GET 模式)</h1>
-    <div id="login-container">
+    <h1>🔒 JWT 身份驗證 - Google Sheets 資料 (自動載入)</h1>
+    
+    <div id="loading-initial">
+        正在檢查登入狀態...
+    </div>
+
+    <div id="login-container" class="hidden">
         <p>請使用您的 Google 帳號登入來驗證身份，只有被授權的郵箱可以存取資料。</p>
         
         <div id="g_id_onload"
@@ -67,8 +78,8 @@
              data-context="signin"
              data-ux_mode="popup"
              data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
+             data-auto_prompt="false"
+             data-auto_select="true"> </div>
 
         <div class="g_id_signin" 
              data-type="standard" 
@@ -106,6 +117,10 @@
         const errorArea = document.getElementById('error-area');
         const dataOutput = document.getElementById('data-output');
         const errorMessage = document.getElementById('error-message');
+        const loadingInitial = document.getElementById('loading-initial');
+
+
+        // *** CSV 和 renderTable 函數 (省略，保持不變) ***
 
         /**
          * 將 CSV 文本轉換為二維陣列（簡化版，不處理複雜引號）
@@ -115,7 +130,6 @@
             if (lines.length === 0) return [];
             
             return lines.map(line => {
-                // 簡單地按逗號分隔
                 return line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
             });
         }
@@ -154,6 +168,7 @@
         
         // 登入成功後，此函數會被呼叫
         function handleCredentialResponse(response) {
+            loadingInitial.classList.add('hidden'); // 隱藏初始載入
             loginContainer.classList.add('hidden');
             dataContainer.classList.remove('hidden');
             errorArea.classList.add('hidden');
@@ -161,19 +176,37 @@
             const idToken = response.credential;
             loadData(idToken);
         }
+        
+        // ** 新增函數：檢查登入狀態 **
+        function checkLoginStatus() {
+            // 使用 google.accounts.id.prompt() 觸發自動登入流程
+            // 如果 GSI 找到一個可用的帳號，它會直接呼叫 handleCredentialResponse
+            // 如果沒有，它不會做任何事情
+            google.accounts.id.prompt((notification) => {
+                loadingInitial.classList.add('hidden'); // 無論結果如何，都隱藏初始載入訊息
+                
+                if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
+                    // 如果沒有自動登入或使用者關閉了提示，顯示登入按鈕
+                    loginContainer.classList.remove('hidden');
+                }
+                
+                // 如果 isCredentialDilivered() 為 true，handleCredentialResponse 會被呼叫
+                // 我們不需要在這裡做額外的處理
+            });
+        }
+
 
         // 呼叫 Apps Script API 的函數 (使用 GET，繞過 CORS 預檢)
         async function loadData(idToken) {
             dataOutput.innerHTML = '<h4>正在驗證身份並獲取資料連結...</h4>';
 
-            // *** 關鍵修正：使用 GET 請求，將 Token 附加到 URL ***
             const authUrl = GAS_WEB_APP_URL + '?id_token=' + idToken;
             let csvDataUrl = '';
 
             try {
                 // --- 1. GET 請求到 Apps Script 進行 JWT 驗證 ---
                 const authResponse = await fetch(authUrl, {
-                    method: 'GET' // <-- 使用 GET
+                    method: 'GET'
                 });
 
                 const authResultText = await authResponse.text();
@@ -206,6 +239,7 @@
                 
                 dataContainer.classList.add('hidden');
                 errorArea.classList.remove('hidden');
+                loginContainer.classList.remove('hidden'); // 錯誤時重新顯示登入按鈕
                 
                 // 顯示錯誤訊息
                 let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CSV 連結。";
@@ -214,11 +248,14 @@
         }
 
         function logout() {
-            // 清除 Google 登入狀態 (禁用自動選取)
+            // 清除 Google 登入狀態
             google.accounts.id.disableAutoSelect(); 
-            // 重新整理頁面，顯示登入按鈕
+            // 重新整理頁面
             location.reload(); 
         }
+
+        // 頁面載入完成後，執行檢查登入狀態的函數
+        window.onload = checkLoginStatus;
         
     </script>
 

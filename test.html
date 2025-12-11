@@ -91,9 +91,9 @@
 
     <script>
         // ==========================================================
-        // *** 請替換為您重新部署後的 Apps Script URL ***
+        // *** 替換為您最新的單一 Web App (C) URL ***
         // ==========================================================
-        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzjkcQso39IAO7Pr_ZdbZvyFNjmh74m7gJbn23bipERN3UPUCU6yJ0hA8lwNX62ZxLW/exec'; 
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyFGygwC7mwPGZuuWcoi0CyM1jvOxjekS5swtGEQpCDU8otNNUbgcwLP8JtDZ9icigk/exec'; 
 
         // ----------------------------------------------------------
         
@@ -148,26 +148,28 @@
             loadData(idToken);
         }
 
-        // 呼叫 Apps Script API 的函數
+        // 呼叫 Apps Script API 的函數 (使用 POST)
         async function loadData(idToken) {
             dataOutput.innerHTML = '<h4>正在使用 JWT 權杖請求資料...</h4>';
 
-            // 將 ID 權杖作為參數傳遞給 Apps Script
-            const url = `${GAS_WEB_APP_URL}?id_token=${idToken}`;
+            const url = GAS_WEB_APP_URL;
 
             try {
-                const response = await fetch(url);
-                const responseText = await response.text();
+                // *** 關鍵變更：改為 POST 請求，將 token 放在 body 中 ***
+                const response = await fetch(url, {
+                    method: 'POST', 
+                    headers: {
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ id_token: idToken }) 
+                });
 
-                if (!response.ok) {
-                    // 根據 Apps Script 返回的 HTTP 錯誤碼和內容顯示訊息
-                    let msg = responseText.substring(0, 200) || '請檢查 Apps Script 伺服器記錄或權限設定。';
-                    if (response.status === 403) {
-                         msg = "403 存取拒絕。您的 Google 郵箱未在 Apps Script 程式碼 (Code.gs) 中被授權。";
-                    } else if (response.status === 401) {
-                         msg = "401 認證失敗。JWT 權杖無效或已過期。";
-                    }
-                    throw new Error(msg);
+                // Apps Script 成功響應 (200 OK)
+                const responseText = await response.text(); 
+
+                if (!response.ok || responseText.startsWith('Error:')) {
+                    // 如果 Apps Script 內部返回了錯誤訊息 (例如：Unauthorized user)
+                    throw new Error(responseText);
                 }
                 
                 // 成功獲取 JSON 資料
@@ -181,7 +183,10 @@
                 
                 dataContainer.classList.add('hidden');
                 errorArea.classList.remove('hidden');
-                errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${error.message}`;
+                
+                // 顯示更友好的錯誤訊息
+                let displayMessage = error.message || "Failed to fetch. 請檢查 Apps Script URL 及 CORS 配置是否正確。";
+                errorMessage.innerHTML = `❌ 資料載入失敗: <br> ${displayMessage}`;
             }
         }
 
